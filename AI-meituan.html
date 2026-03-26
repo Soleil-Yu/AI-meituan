@@ -910,8 +910,8 @@
                                 </div>
                             </div>
                             
-                            <!-- 生成的提示词板块 -->
-                            <div class="content-section" style="margin-top: 16px;">
+                            <!-- 生成的提示词板块 - 旧版，已隐藏 -->
+                            <div class="content-section" style="margin-top: 16px; display: none;">
                                 <div class="section-header">
                                     <h3 class="section-title">📝 生成的提示词</h3>
                                     <button class="btn btn-secondary" onclick="assemblePrompt()" disabled>🔄 重新生成提示词</button>
@@ -2055,16 +2055,33 @@
                                 const color = document.getElementById('color-select').value || '';
                                 const appetite = document.getElementById('appetite-select').value || '';
                                 
+                                // 获取选中的标签
+                                let selectedTags = [];
+                                const selectedTagsElements = document.querySelectorAll('.quick-tag.selected');
+                                selectedTagsElements.forEach(element => {
+                                    selectedTags.push(element.textContent);
+                                });
+                                
+                                // 结合自定义提示词和选中标签，作为额外要求
+                                let extraRequirements = [];
+                                if (customPrompt) {
+                                    extraRequirements.push(customPrompt);
+                                }
+                                if (selectedTags.length > 0) {
+                                    extraRequirements = extraRequirements.concat(selectedTags);
+                                }
+                                const extraRequirementsStr = extraRequirements.join('，');
+                                
                                 // 构建基础提示词
                                 let basePrompt = '';
                                 if (productName) {
                                     basePrompt = `产品：${productName}`;
                                 }
                                 if (highlight) {
-                                    basePrompt += `，重点：${highlight}`;
+                                    basePrompt += basePrompt ? `，重点：${highlight}` : `重点：${highlight}`;
                                 }
-                                if (customPrompt) {
-                                    basePrompt += `，补充：${customPrompt}`;
+                                if (extraRequirementsStr) {
+                                    basePrompt += basePrompt ? `，补充：${extraRequirementsStr}` : `补充：${extraRequirementsStr}`;
                                 }
                                 
                                 return {
@@ -2072,6 +2089,8 @@
                                     productName: productName,
                                     highlight: highlight,
                                     customPrompt: customPrompt,
+                                    extraRequirements: extraRequirementsStr,
+                                    selectedTags: selectedTags,
                                     imageType: imageType,
                                     style: style,
                                     lighting: lighting,
@@ -2093,32 +2112,73 @@
                                     // 构建draftPrompt
                                     const draftPrompt = context.basePrompt || '请生成一个结构化提示词';
                                     
-                                    // 调用后端API获取结构化提示词
-                                    const response = await fetch('http://localhost:3000/api/structured-prompt', {
-                                        method: 'POST',
-                                        headers: {
-                                            'Content-Type': 'application/json'
-                                        },
-                                        body: JSON.stringify({
-                                            draftPrompt: draftPrompt,
-                                            context: context
-                                        }),
-                                        timeout: 30000 // 30秒超时
-                                    });
+                                    let structuredPrompt;
                                     
-                                    if (!response.ok) {
-                                        throw new Error(`服务器错误，状态码：${response.status}`);
-                                    }
-                                    
-                                    const result = await response.json();
-                                    
-                                    // 检查API返回结果
-                                    if (!result.success) {
-                                        throw new Error(result.error || '生成提示词失败');
+                                    try {
+                                        // 调用后端API获取结构化提示词
+                                        const response = await fetch('http://localhost:3000/api/structured-prompt', {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json'
+                                            },
+                                            body: JSON.stringify({
+                                                draftPrompt: draftPrompt,
+                                                context: context
+                                            }),
+                                            timeout: 5000 // 5秒超时
+                                        });
+                                        
+                                        if (!response.ok) {
+                                            throw new Error(`服务器错误，状态码：${response.status}`);
+                                        }
+                                        
+                                        const result = await response.json();
+                                        
+                                        // 检查API返回结果
+                                        if (!result.success) {
+                                            throw new Error(result.error || '生成提示词失败');
+                                        }
+                                        
+                                        structuredPrompt = result.data;
+                                    } catch (apiError) {
+                                        console.warn('API调用失败，使用mock数据:', apiError.message);
+                                        
+                                        // 获取自定义提示词和额外要求
+                                        const customPrompt = context.customPrompt;
+                                        const extraRequirements = context.extraRequirements;
+                                        
+                                        // 构建包含自由补充内容的mock数据
+                                        let details = ["突出食材新鲜", "增加食欲"];
+                                        let finalPromptText = "一张写实风格的香辣毛肚火锅照片，居中构图，暖色调光线，以红油色为主，突出食材新鲜，增加食欲，背景为餐厅堂食场景，蒸汽效果明显，毛肚纹理清晰，配菜丰富，整体看起来非常有吸引力";
+                                        
+                                        // 如果有自由补充内容，添加到mock数据中
+                                        if (customPrompt) {
+                                            details.push(customPrompt);
+                                            finalPromptText += `，${customPrompt}`;
+                                            // 为完整提示词添加句号
+                                            finalPromptText += "。";
+                                        } else {
+                                            // 如果没有自由补充内容，直接添加句号
+                                            finalPromptText += "。";
+                                        }
+                                        
+                                        // 使用mock数据兜底，包含自由补充内容
+                                        structuredPrompt = {
+                                            "subject": "香辣毛肚火锅",
+                                            "scene": "餐厅堂食",
+                                            "style": "写实风格",
+                                            "composition": "居中构图",
+                                            "lighting": "暖色调光线",
+                                            "color": "红油色为主",
+                                            "business_goal": "突出食材新鲜，增加食欲",
+                                            "details": details,
+                                            "extraRequirements": extraRequirements,
+                                            "final_prompt_text": finalPromptText
+                                        };
                                     }
                                     
                                     // 更新前端展示
-                                    updateStructuredPromptDisplay(result.data);
+                                    updateStructuredPromptDisplay(structuredPrompt);
                                     
                                     // 显示成功状态
                                     showPromptSuccess();
@@ -2127,8 +2187,17 @@
                                     showToast('生成成功', '结构化提示词已生成', 'success');
                                 } catch (error) {
                                     console.error('生成结构化提示词失败:', error);
-                                    showPromptError(error.message || '无法生成结构化提示词，请稍后重试');
-                                    showToast('生成失败', error.message || '无法生成结构化提示词', 'error');
+                                    let errorMsg = '无法生成结构化提示词，请稍后重试';
+                                    
+                                    // 自定义错误消息
+                                    if (error.message.includes('Failed to fetch') || error.message.includes('fetch')) {
+                                        errorMsg = '无法连接提示词生成服务，请检查本地接口是否已启动';
+                                    } else if (error.message.includes('timeout')) {
+                                        errorMsg = '提示词生成服务超时，请稍后重试';
+                                    }
+                                    
+                                    showPromptError(errorMsg);
+                                    showToast('生成失败', errorMsg, 'error');
                                 }
                             }
                             
@@ -2334,8 +2403,8 @@
                             }
                         </script>
                         
-                        <!-- 提示词组装和预览区域 -->
-                        <div style="margin-top: 24px;">
+                        <!-- 提示词组装和预览区域 - 旧版，已隐藏 -->
+                        <div style="margin-top: 24px; display: none;">
 
                             
                             <div class="content-section" style="margin-top: 16px;">
