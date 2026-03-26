@@ -1118,31 +1118,31 @@
                     </div>
                     <div style="padding: 20px;">
                         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
-                            <div class="quick-gen-card" onclick="openGenerateModal('dish')">
+                            <div class="quick-gen-card" onclick="showToast('功能提示', '请使用页面下方的提示词生图功能', 'info')">
                                 <div style="font-size: 32px; margin-bottom: 8px;">✨</div>
                                 <div style="font-weight: 600; margin-bottom: 6px;">新品上新图</div>
                                 <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">适合新品发布、吸引点击</div>
                                 <div style="font-size: 12px; color: var(--text-light);">菜品图 (2000×1500)</div>
                             </div>
-                            <div class="quick-gen-card" onclick="openGenerateModal('combo')">
+                            <div class="quick-gen-card" onclick="showToast('功能提示', '请使用页面下方的提示词生图功能', 'info')">
                                 <div style="font-size: 32px; margin-bottom: 8px;">🍱</div>
                                 <div style="font-weight: 600; margin-bottom: 6px;">套餐推广图</div>
                                 <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">突出组合搭配和高性价比</div>
                                 <div style="font-size: 12px; color: var(--text-light);">套餐图 (1778×1000)</div>
                             </div>
-                            <div class="quick-gen-card" onclick="openGenerateModal('header')">
+                            <div class="quick-gen-card" onclick="showToast('功能提示', '请使用页面下方的提示词生图功能', 'info')">
                                 <div style="font-size: 32px; margin-bottom: 8px;">🏠</div>
                                 <div style="font-weight: 600; margin-bottom: 6px;">门店头图优化</div>
                                 <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">提升门店形象、吸引客流</div>
                                 <div style="font-size: 12px; color: var(--text-light);">门店头图 (8000×1200)</div>
                             </div>
-                            <div class="quick-gen-card" onclick="openGenerateModal('entrance')">
+                            <div class="quick-gen-card" onclick="showToast('功能提示', '请使用页面下方的提示词生图功能', 'info')">
                                 <div style="font-size: 32px; margin-bottom: 8px;">🎊</div>
                                 <div style="font-weight: 600; margin-bottom: 6px;">节日活动海报</div>
                                 <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">适合节日促销、活动宣传</div>
                                 <div style="font-size: 12px; color: var(--text-light);">入口图 (900×900)</div>
                             </div>
-                            <div class="quick-gen-card" onclick="openGenerateModal('dish')">
+                            <div class="quick-gen-card" onclick="showToast('功能提示', '请使用页面下方的提示词生图功能', 'info')">
                                 <div style="font-size: 32px; margin-bottom: 8px;">🔥</div>
                                 <div style="font-weight: 600; margin-bottom: 6px;">爆款菜品图</div>
                                 <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">突出菜品特色、刺激下单</div>
@@ -1223,7 +1223,7 @@
                                 <div style="font-size: 13px; font-weight: 500; color: var(--primary-dark); margin-bottom: 8px;">图片上传成功！</div>
                                 <div style="display: flex; gap: 12px; flex-wrap: wrap;">
                                     <button class="btn btn-primary btn-sm" onclick="analyzeUploadedImage()">解析这张图，看看还能怎么优化</button>
-                                    <button class="btn btn-secondary btn-sm" onclick="generateFromUploadedImage()">基于这张图继续生成</button>
+                                    <button class="btn btn-secondary btn-sm" onclick="showToast('功能提示', '请使用页面下方的提示词生图功能', 'info')">基于这张图继续生成</button>
                                     <button class="btn btn-secondary btn-sm" onclick="clearUploadedImage()" style="margin-left: auto;">清除图片</button>
                                 </div>
                                 <div id="uploaded-image-preview" style="margin-top: 12px; display: flex; gap: 12px; align-items: center;"></div>
@@ -2372,21 +2372,21 @@
                                 }
                             }
                             
-                            // 发送给图像模型进行生图（占位函数）
-                            function generateImages() {
+                            // 发送给图像模型进行生图
+                            window.generateImages = function() {
+                                // 获取按钮和结果框元素
+                                const generateBtn = document.getElementById('generate-image-btn');
+                                const imageResults = document.getElementById('image-results');
+                                
+                                // 保存原始按钮文本
+                                const originalBtnText = generateBtn.textContent;
+                                
                                 try {
                                     const finalPrompt = document.getElementById('final-prompt-text').textContent;
                                     if (finalPrompt === '请点击上方按钮生成提示词') {
                                         showToast('提示词为空', '请先生成提示词', 'warning');
                                         return;
                                     }
-                                    
-                                    // 获取按钮和结果框元素
-                                    const generateBtn = document.getElementById('generate-image-btn');
-                                    const imageResults = document.getElementById('image-results');
-                                    
-                                    // 保存原始按钮文本
-                                    const originalBtnText = generateBtn.textContent;
                                     
                                     // 进入loading状态
                                     generateBtn.textContent = '生成中...';
@@ -2402,7 +2402,7 @@
                                     `;
                                     
                                     // 调用后端接口
-                                    fetch('/api/generate-image', {
+                                    fetch('http://localhost:3000/api/generate-image', {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type': 'application/json'
@@ -2411,7 +2411,12 @@
                                             prompt: finalPrompt
                                         })
                                     })
-                                    .then(response => response.json())
+                                    .then(response => {
+                                        if (!response.ok) {
+                                            throw new Error(`HTTP error! status: ${response.status}`);
+                                        }
+                                        return response.json();
+                                    })
                                     .then(data => {
                                         // 恢复按钮状态
                                         generateBtn.textContent = originalBtnText;
@@ -2420,39 +2425,62 @@
                                         
                                         if (data.success) {
                                             // 成功生成图片
-                                            let imageUrl = '';
+                                            let imageUrls = [];
                                             
                                             // 兼容不同的返回格式
-                                            if (typeof data.result === 'string') {
-                                                // 直接返回图片URL
-                                                imageUrl = data.result;
-                                            } else if (data.result && data.result.image) {
-                                                // 返回对象中的图片字段
-                                                imageUrl = data.result.image;
-                                            } else if (data.result && data.result.images && data.result.images.length > 0) {
-                                                // 返回图片数组
-                                                imageUrl = data.result.images[0];
+                                            if (Array.isArray(data.data)) {
+                                                // 直接返回图片URL数组
+                                                imageUrls = data.data;
+                                            } else if (typeof data.data === 'string') {
+                                                // 直接返回单张图片URL
+                                                imageUrls = [data.data];
+                                            } else if (data.data && data.data.images && Array.isArray(data.data.images)) {
+                                                // 返回对象中的图片数组
+                                                imageUrls = data.data.images;
+                                            } else if (data.data && data.data.image) {
+                                                // 返回对象中的单张图片
+                                                imageUrls = [data.data.image];
+                                            } else if (data.data && data.data.result) {
+                                                // 返回result字段，可能是单张图片URL
+                                                imageUrls = [data.data.result];
                                             } else {
-                                                // 其他格式，尝试转换为字符串
-                                                imageUrl = String(data.result);
+                                                // 其他格式，尝试解析
+                                                console.warn('未知的返回格式:', data.data);
+                                                imageUrls = [];
                                             }
                                             
-                                            // 显示生成的图片
-                                            imageResults.innerHTML = `
-                                                <img src="${imageUrl}" alt="生成的图片" style="max-width: 100%; height: auto; border-radius: var(--radius-md); grid-column: 1 / -1;">
-                                            `;
-                                            
-                                            showToast('生成成功', '图片已生成', 'success');
+                                            if (imageUrls.length > 0) {
+                                                // 显示生成的图片
+                                                let imagesHtml = '';
+                                                imageUrls.forEach(url => {
+                                                    imagesHtml += `
+                                                        <div class="result-item">
+                                                            <img src="${url}" alt="生成的图片" style="max-width: 100%; height: 200px; object-fit: cover; border-radius: var(--radius-md);">
+                                                        </div>
+                                                    `;
+                                                });
+                                                imageResults.innerHTML = imagesHtml;
+                                                showToast('生成成功', '图片已生成', 'success');
+                                            } else {
+                                                // 没有返回图片URL
+                                                imageResults.innerHTML = `
+                                                    <div style="text-align: center; color: var(--error); grid-column: 1 / -1;">
+                                                        <div style="font-size: 48px; margin-bottom: 16px;">❌</div>
+                                                        <div>生成成功，但未返回图片URL</div>
+                                                    </div>
+                                                `;
+                                                showToast('生成失败', '生成成功，但未返回图片URL', 'error');
+                                            }
                                         } else {
                                             // 生成失败
                                             imageResults.innerHTML = `
                                                 <div style="text-align: center; color: var(--error); grid-column: 1 / -1;">
                                                     <div style="font-size: 48px; margin-bottom: 16px;">❌</div>
-                                                    <div>${data.message || '生成图片失败，请稍后重试'}</div>
+                                                    <div>${data.error || data.message || '生成图片失败，请稍后重试'}</div>
                                                 </div>
                                             `;
                                             
-                                            showToast('生成失败', data.message || '生成图片失败，请稍后重试', 'error');
+                                            showToast('生成失败', data.error || data.message || '生成图片失败，请稍后重试', 'error');
                                         }
                                     })
                                     .catch(error => {
@@ -2475,10 +2503,17 @@
                                     
                                 } catch (error) {
                                     // 恢复按钮状态
-                                    const generateBtn = document.getElementById('generate-image-btn');
-                                    generateBtn.textContent = '🎨 发送给图像模型进行生图';
+                                    generateBtn.textContent = originalBtnText;
                                     generateBtn.disabled = false;
                                     generateBtn.classList.remove('btn-loading');
+                                    
+                                    // 显示错误提示
+                                    imageResults.innerHTML = `
+                                        <div style="text-align: center; color: var(--error); grid-column: 1 / -1;">
+                                            <div style="font-size: 48px; margin-bottom: 16px;">❌</div>
+                                            <div>发送到图像模型失败：${error.message}</div>
+                                        </div>
+                                    `;
                                     
                                     console.error('发送到图像模型失败:', error);
                                     showToast('发送失败', '无法发送到图像模型', 'error');
