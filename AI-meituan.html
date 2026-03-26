@@ -1079,7 +1079,7 @@
             <div class="page-content" id="page-merchant-home">
                 <div class="page-header">
                     <div>
-                        <h1 class="page-title">张记川渝火锅 <span class="badge">商家视角</span></h1>
+                        <h1 class="page-title">商家名称 <span class="badge">商家视角</span></h1>
                         <p class="page-subtitle">AI生图能力嵌入商家图片上传原生链路</p>
                     </div>
                     <div style="display: flex; gap: 12px;">
@@ -1196,7 +1196,7 @@
             <div class="page-content active" id="page-prompt-to-image"> 
                 <div class="page-header">
                     <div>
-                        <h1 class="page-title">张记川渝火锅 <span class="badge">商家视角</span></h1>
+                        <h1 class="page-title">商家名称 <span class="badge">商家视角</span></h1>
                         <p class="page-subtitle">通过提示词生成高质量餐饮图片</p>
                     </div>
                 </div>
@@ -1295,17 +1295,20 @@
                         <!-- 任务式表单：你希望整体呈现什么感觉 -->
                         <div class="form-group" style="margin-top: 16px;">
                             <label class="form-label">你希望整体呈现什么感觉</label>
-                            <select class="form-input form-select" id="appetite-select">
-                                <option value="">请选择</option>
-                                <option value="有食欲" selected>有食欲</option>
-                                <option value="高级感">高级感</option>
-                                <option value="烟火气">烟火气</option>
-                                <option value="清爽">清爽</option>
-                                <option value="热闹">热闹</option>
-                                <option value="干净">干净</option>
-                                <option value="丰盛">丰盛</option>
-                            </select>
+                            <div id="appetite-select" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+                                <span class="quick-tag" onclick="toggleAppetiteTag(this, '有食欲')" data-value="有食欲">有食欲</span>
+                                <span class="quick-tag" onclick="toggleAppetiteTag(this, '高级感')" data-value="高级感">高级感</span>
+                                <span class="quick-tag" onclick="toggleAppetiteTag(this, '烟火气')" data-value="烟火气">烟火气</span>
+                                <span class="quick-tag" onclick="toggleAppetiteTag(this, '清爽')" data-value="清爽">清爽</span>
+                                <span class="quick-tag" onclick="toggleAppetiteTag(this, '热闹')" data-value="热闹">热闹</span>
+                                <span class="quick-tag" onclick="toggleAppetiteTag(this, '干净')" data-value="干净">干净</span>
+                                <span class="quick-tag" onclick="toggleAppetiteTag(this, '丰盛')" data-value="丰盛">丰盛</span>
+                            </div>
+                            <div style="margin-top: 8px; font-size: 12px; color: var(--text-light);">可多选，点击标签切换选中状态</div>
                         </div>
+                        
+                        <!-- 隐藏的存储选中值的元素 -->
+                        <input type="hidden" id="selected-appetite-tags" value="有食欲">
                         
                         <!-- 高级控制区域（可展开/折叠） -->
                         <div style="margin-top: 16px; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden;">
@@ -1655,6 +1658,20 @@
                                 updateSelectedRequirements();
                             }
                             
+                            // 切换整体感觉标签状态
+                            function toggleAppetiteTag(element, tagText) {
+                                element.classList.toggle('selected');
+                                
+                                // 获取所有选中的感觉标签
+                                const selectedTags = [];
+                                document.querySelectorAll('#appetite-select .quick-tag.selected').forEach(tag => {
+                                    selectedTags.push(tag.getAttribute('data-value'));
+                                });
+                                
+                                // 更新隐藏输入框的值
+                                document.getElementById('selected-appetite-tags').value = selectedTags.join(',');
+                            }
+                            
                             // 更新已选要求摘要
                             function updateSelectedRequirements() {
                                 const selectedRequirements = document.getElementById('selected-requirements');
@@ -1907,6 +1924,32 @@
                                 return result;
                             }
                             
+                            // 解析意图映射，将抽象的感觉标签转换为具体描述
+                            function resolveIntentMappings(category1, category2, selectedIntents) {
+                                // 初始化结果数组
+                                let mappedTerms = [];
+                                
+                                // 如果没有选择意图，返回空数组
+                                if (!selectedIntents || !Array.isArray(selectedIntents) || selectedIntents.length === 0) {
+                                    return mappedTerms;
+                                }
+                                
+                                // 获取当前品类的知识数据
+                                const catK = categoryKnowledge[category2] || {};
+                                const intentMappings = catK.intent_mappings || {};
+                                
+                                // 遍历选中的意图，获取映射词
+                                selectedIntents.forEach(intent => {
+                                    if (intentMappings[intent]) {
+                                        // 将映射词添加到结果数组
+                                        mappedTerms = mappedTerms.concat(intentMappings[intent]);
+                                    }
+                                });
+                                
+                                // 去重并返回
+                                return [...new Set(mappedTerms)];
+                            }
+                            
                             // 切换JSON详情显示/隐藏
                             // 折叠面板切换
                             function toggleJsonDetails() {
@@ -1972,7 +2015,9 @@
                                     lighting: prompt.lighting || '-',
                                     color: prompt.color || '-',
                                     business_goal: prompt.business_goal || '-',
-                                    final_prompt_text: prompt.final_prompt_text || '生成的提示词为空'
+                                    final_prompt_text: prompt.final_prompt_text || '生成的提示词为空',
+                                    details: prompt.details || [],
+                                    intentMappedTerms: prompt.intentMappedTerms || []
                                 };
                                 
                                 // 更新结构化摘要
@@ -1983,6 +2028,17 @@
                                 document.getElementById('summary-lighting').textContent = normalizedPrompt.lighting;
                                 document.getElementById('summary-color').textContent = normalizedPrompt.color;
                                 document.getElementById('summary-business-goal').textContent = normalizedPrompt.business_goal;
+                                
+                                // 如果有映射后的具体描述，添加到style字段或创建新字段
+                                if (normalizedPrompt.intentMappedTerms.length > 0) {
+                                    // 如果style字段为空，使用映射后的描述
+                                    if (normalizedPrompt.style === '-') {
+                                        document.getElementById('summary-style').textContent = normalizedPrompt.intentMappedTerms.join('，');
+                                    } else {
+                                        // 否则，将映射后的描述添加到style字段
+                                        document.getElementById('summary-style').textContent += '，' + normalizedPrompt.intentMappedTerms.join('，');
+                                    }
+                                }
                                 
                                 // 更新最终提示词
                                 document.getElementById('final-prompt-text').textContent = normalizedPrompt.final_prompt_text;
@@ -2057,7 +2113,10 @@
                                 const lighting = document.getElementById('lighting-select').value || '';
                                 const composition = document.getElementById('composition-select').value || '';
                                 const color = document.getElementById('color-select').value || '';
-                                const appetite = document.getElementById('appetite-select').value || '';
+                                
+                                // 获取多选的感觉标签
+                                const appetiteTags = document.getElementById('selected-appetite-tags').value || '';
+                                const appetite = appetiteTags ? appetiteTags.split(',') : [];
                                 
                                 // 获取选中的标签
                                 let selectedTags = [];
@@ -2121,13 +2180,19 @@
                                     // 获取表单上下文
                                     const context = getFormContext();
                                     
+                                    // 从context中提取所需变量
+                                    const { category1, category2, productName, highlight, customPrompt, imageType, style, lighting, composition, color, extraRequirements, appetite } = context;
+                                    
                                     // 验证品类是否已选择
-                                    if (!context.category1) {
+                                    if (!category1) {
                                         throw new Error('请先选择一级品类');
                                     }
-                                    if (!context.category2) {
+                                    if (!category2) {
                                         throw new Error('请先选择二级品类');
                                     }
+                                    
+                                    // 解析意图映射，将抽象的感觉标签转换为具体描述
+                                    const intentMappedTerms = resolveIntentMappings(category1, category2, appetite);
                                     
                                     // 构建draftPrompt
                                     const draftPrompt = context.basePrompt || '请生成一个结构化提示词';
@@ -2143,7 +2208,8 @@
                                             },
                                             body: JSON.stringify({
                                                 draftPrompt: draftPrompt,
-                                                context: context
+                                                context: context,
+                                                intentMappedTerms: intentMappedTerms
                                             }),
                                             timeout: 5000 // 5秒超时
                                         });
@@ -2163,37 +2229,49 @@
                                     } catch (apiError) {
                                         console.warn('API调用失败，使用mock数据:', apiError.message);
                                         
-                                        // 获取自定义提示词和额外要求
-                                        const customPrompt = context.customPrompt;
-                                        const extraRequirements = context.extraRequirements;
-                                        
                                         // 构建包含自由补充内容的mock数据
-                                        let details = ["突出食材新鲜", "增加食欲"];
-                                        let finalPromptText = "一张写实风格的香辣毛肚火锅照片，居中构图，暖色调光线，以红油色为主，突出食材新鲜，增加食欲，背景为餐厅堂食场景，蒸汽效果明显，毛肚纹理清晰，配菜丰富，整体看起来非常有吸引力";
+                                        let details = [...intentMappedTerms];
                                         
-                                        // 如果有自由补充内容，添加到mock数据中
+                                        // 如果有自定义提示词，添加到details中
                                         if (customPrompt) {
                                             details.push(customPrompt);
-                                            finalPromptText += `，${customPrompt}`;
-                                            // 为完整提示词添加句号
-                                            finalPromptText += "。";
-                                        } else {
-                                            // 如果没有自由补充内容，直接添加句号
-                                            finalPromptText += "。";
                                         }
                                         
-                                        // 使用mock数据兜底，包含自由补充内容
+                                        // 使用当前表单值生成mock数据
+                                        const mockSubject = productName || `${category2}`;
+                                        const mockScene = imageType === 'entrance' ? '门店入口' : imageType === 'header' ? '门店环境' : '餐厅堂食';
+                                        const mockStyle = style || "写实风格";
+                                        const mockComposition = composition || "居中构图";
+                                        const mockLighting = lighting || "暖色调光线";
+                                        const mockColor = color || "鲜艳色调";
+                                        const mockBusinessGoal = highlight || "突出产品特点";
+                                        
+                                        // 构建符合当前品类的finalPromptText，不直接使用抽象词
+                                        let mockFinalPrompt = `一张${mockStyle}的${mockSubject}照片，${mockComposition}，${mockLighting}，${mockColor}，突出${mockBusinessGoal}`;
+                                        
+                                        if (details.length > 0) {
+                                            mockFinalPrompt += `，${details.join('，')}`;
+                                        }
+                                        
+                                        if (extraRequirements) {
+                                            mockFinalPrompt += `，${extraRequirements}`;
+                                        }
+                                        
+                                        mockFinalPrompt += "。";
+                                        
+                                        // 使用mock数据兜底，包含当前表单值
                                         structuredPrompt = {
-                                            "subject": "香辣毛肚火锅",
-                                            "scene": "餐厅堂食",
-                                            "style": "写实风格",
-                                            "composition": "居中构图",
-                                            "lighting": "暖色调光线",
-                                            "color": "红油色为主",
-                                            "business_goal": "突出食材新鲜，增加食欲",
+                                            "subject": mockSubject,
+                                            "scene": mockScene,
+                                            "style": mockStyle,
+                                            "composition": mockComposition,
+                                            "lighting": mockLighting,
+                                            "color": mockColor,
+                                            "business_goal": mockBusinessGoal,
                                             "details": details,
                                             "extraRequirements": extraRequirements,
-                                            "final_prompt_text": finalPromptText
+                                            "intentMappedTerms": intentMappedTerms,
+                                            "final_prompt_text": mockFinalPrompt
                                         };
                                     }
                                     
@@ -2423,29 +2501,7 @@
                             }
                         </script>
                         
-                        <!-- 提示词组装和预览区域 - 旧版，已隐藏 -->
-                        <div style="margin-top: 24px; display: none;">
-
-                            
-                            <div class="content-section" style="margin-top: 16px;">
-                                <div class="section-header">
-                                    <h3 class="section-title">📝 生成的提示词</h3>
-                                    <button class="btn btn-secondary" onclick="assemblePrompt()">🔄 重新生成提示词</button>
-                                </div>
-                                <div style="padding: 20px;">
-                                    <div class="prompt-box" style="background: #f8f9fa; border: 1px solid #e9ecef;">
-                                        <div class="prompt-row">
-                                            <div class="prompt-label">结构化提示词</div>
-                                            <div class="prompt-value" id="assembled-prompt" style="min-height: 80px;">请点击下方按钮生成提示词</div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div style="margin-top: 16px; text-align: center;">
-                                        <button class="btn btn-primary" onclick="generateImages()">🎨 用该提示词生图</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <!-- 旧版提示词模块已删除，避免数据绑定冲突 -->
 
                         <!-- 生图结果展示区域 -->
                         <div style="margin-top: 24px;">
@@ -2471,7 +2527,7 @@
             <div class="page-content" id="page-image-to-image"> 
                 <div class="page-header">
                     <div>
-                        <h1 class="page-title">张记川渝火锅 <span class="badge">商家视角</span></h1>
+                        <h1 class="page-title">商家名称 <span class="badge">商家视角</span></h1>
                         <p class="page-subtitle">上传参考图片，生成相似风格的餐饮图片</p>
                     </div>
                 </div>
@@ -2504,7 +2560,7 @@
             <div class="page-content" id="page-image-analysis"> 
                 <div class="page-header">
                     <div>
-                        <h1 class="page-title">张记川渝火锅 <span class="badge">商家视角</span></h1>
+                        <h1 class="page-title">商家名称 <span class="badge">商家视角</span></h1>
                         <p class="page-subtitle">上传图片，自动解析为文字描述</p>
                     </div>
                 </div>
@@ -2551,7 +2607,7 @@
             <div class="page-content" id="page-my-works"> 
                 <div class="page-header">
                     <div>
-                        <h1 class="page-title">张记川渝火锅 <span class="badge">商家视角</span></h1>
+                        <h1 class="page-title">商家名称 <span class="badge">商家视角</span></h1>
                         <p class="page-subtitle">管理您的AI生成作品</p>
                     </div>
                 </div>
@@ -2648,7 +2704,7 @@
             <div class="page-content" id="page-tutorial"> 
                 <div class="page-header">
                     <div>
-                        <h1 class="page-title">张记川渝火锅 <span class="badge">商家视角</span></h1>
+                        <h1 class="page-title">商家名称 <span class="badge">商家视角</span></h1>
                         <p class="page-subtitle">学习如何使用AI生图功能</p>
                     </div>
                 </div>
@@ -2697,7 +2753,7 @@
             <div class="page-content" id="page-feedback"> 
                 <div class="page-header">
                     <div>
-                        <h1 class="page-title">张记川渝火锅 <span class="badge">商家视角</span></h1>
+                        <h1 class="page-title">商家名称 <span class="badge">商家视角</span></h1>
                         <p class="page-subtitle">如有问题或建议，欢迎反馈</p>
                     </div>
                 </div>
@@ -2742,7 +2798,7 @@
                 <div class="context-box">
                     <div class="context-row">
                         <span class="context-label">已识别垂类：</span>
-                        <span class="context-value" id="gen-l1">火锅</span> → <span class="context-value" id="gen-l2">川渝火锅</span>
+                        <span class="context-value" id="gen-l1">-</span> → <span class="context-value" id="gen-l2">-</span>
                     </div>
                     <div class="context-row">
                         <span class="context-label">当前图位：</span>
@@ -6878,6 +6934,13 @@
             const sizes = { entrance: '(900×900)', header: '(8000×1200)', combo: '(1778×1000)', dish: '(2000×1500)' };
             document.getElementById('gen-scene').textContent = names[scene];
             document.getElementById('gen-size').textContent = sizes[scene];
+            
+            // 更新已识别垂类为当前用户选择的品类
+            const category1 = document.getElementById('prompt-l1-category').value || '-';
+            const category2 = document.getElementById('prompt-l2-category').value || '-';
+            document.getElementById('gen-l1').textContent = category1;
+            document.getElementById('gen-l2').textContent = category2;
+            
             document.getElementById('result-grid').style.display = 'none';
             document.getElementById('feedback-box').style.display = 'none';
             document.getElementById('prompt-preview').style.display = 'none';
@@ -6897,15 +6960,22 @@
 
         function doGenerate() {
             const intent = document.getElementById('gen-intent').value || '有食欲';
-            const subject = document.getElementById('gen-subject').value || '火锅食材';
+            const subject = document.getElementById('gen-subject').value || '';
             const sceneK = sceneKnowledge[currentScene];
-            const catK = categoryKnowledge['川渝火锅'] || {};
+            
+            // 获取当前用户选择的品类
+            const category2 = document.getElementById('gen-l2').textContent;
+            const productName = document.getElementById('product-name').value || '';
+            const actualSubject = subject || productName || `${category2}`;
+            
+            // 使用当前品类的知识数据，而不是硬编码的川渝火锅
+            const catK = categoryKnowledge[category2] || {};
             const intentMaps = (catK.intent_mappings && catK.intent_mappings[intent]) || [];
 
             document.getElementById('preview-goal').textContent = `生成${sceneK.slot_type}，${sceneK.business_goal}`;
-            document.getElementById('preview-subject').textContent = subject;
+            document.getElementById('preview-subject').textContent = actualSubject;
             document.getElementById('preview-style').textContent = intentMaps.slice(0, 3).join('、') || '高食欲感';
-            document.getElementById('preview-final').textContent = `生成一张${subject}的${sceneK.slot_type}，${intentMaps.slice(0, 2).join('、') || '高食欲感'}，真实实拍风风格`;
+            document.getElementById('preview-final').textContent = `生成一张${actualSubject}的${sceneK.slot_type}，${intentMaps.slice(0, 2).join('、') || '高食欲感'}，真实实拍风风格`;
             document.getElementById('prompt-preview').style.display = 'block';
 
             document.getElementById('generate-btn').innerHTML = '<span style="animation: spin 1s linear infinite;">⏳</span> 生成中...';
@@ -6962,7 +7032,8 @@
                 mNav.style.display = 'block';
                 document.getElementById('user-avatar').textContent = '张';
                 document.getElementById('user-name').textContent = '张老板';
-                document.getElementById('user-role').textContent = '张记川渝火锅';
+                document.getElementById('user-role').textContent = '商家';
+                document.getElementById('user-name').textContent = '商家用户';
                 switchPage('merchant-home');
                 // 商家视角隐藏组织规则命令板块
                 if (rulesSection) {
