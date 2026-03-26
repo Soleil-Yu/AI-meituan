@@ -1283,12 +1283,6 @@
                             <label class="form-label">你想突出什么</label>
                             <select class="form-input form-select" id="highlight-select">
                                 <option value="">请选择</option>
-                                <option value="新品">新品</option>
-                                <option value="爆款">爆款</option>
-                                <option value="套餐更划算">套餐更划算</option>
-                                <option value="看起来更有食欲">看起来更有食欲</option>
-                                <option value="新鲜食材">新鲜食材</option>
-                                <option value="量大实惠">量大实惠</option>
                             </select>
                         </div>
                         
@@ -1296,19 +1290,12 @@
                         <div class="form-group" style="margin-top: 16px;">
                             <label class="form-label">你希望整体呈现什么感觉</label>
                             <div id="appetite-select" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
-                                <span class="quick-tag" onclick="toggleAppetiteTag(this, '有食欲')" data-value="有食欲">有食欲</span>
-                                <span class="quick-tag" onclick="toggleAppetiteTag(this, '高级感')" data-value="高级感">高级感</span>
-                                <span class="quick-tag" onclick="toggleAppetiteTag(this, '烟火气')" data-value="烟火气">烟火气</span>
-                                <span class="quick-tag" onclick="toggleAppetiteTag(this, '清爽')" data-value="清爽">清爽</span>
-                                <span class="quick-tag" onclick="toggleAppetiteTag(this, '热闹')" data-value="热闹">热闹</span>
-                                <span class="quick-tag" onclick="toggleAppetiteTag(this, '干净')" data-value="干净">干净</span>
-                                <span class="quick-tag" onclick="toggleAppetiteTag(this, '丰盛')" data-value="丰盛">丰盛</span>
                             </div>
                             <div style="margin-top: 8px; font-size: 12px; color: var(--text-light);">可多选，点击标签切换选中状态</div>
                         </div>
                         
                         <!-- 隐藏的存储选中值的元素 -->
-                        <input type="hidden" id="selected-appetite-tags" value="有食欲">
+                        <input type="hidden" id="selected-appetite-tags" value="">
                         
                         <!-- 高级控制区域（可展开/折叠） -->
                         <div style="margin-top: 16px; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden;">
@@ -1406,20 +1393,7 @@
                                 <div id="selected-tags" style="display: flex; flex-wrap: gap; gap: 8px;"></div>
                             </div>
                             
-                            <!-- 快捷要求标签 -->
-                            <div style="margin-bottom: 12px;">
-                                <div style="font-size: 13px; font-weight: 500; margin-bottom: 8px; color: var(--text-primary);">快捷选择：</div>
-                                <div style="display: flex; flex-wrap: gap; gap: 8px;">
-                                    <span class="quick-tag" onclick="toggleTag(this, '更有食欲')">更有食欲</span>
-                                    <span class="quick-tag" onclick="toggleTag(this, '更像实拍')">更像实拍</span>
-                                    <span class="quick-tag" onclick="toggleTag(this, '更高级')">更高级</span>
-                                    <span class="quick-tag" onclick="toggleTag(this, '更干净')">更干净</span>
-                                    <span class="quick-tag" onclick="toggleTag(this, '更适合外卖主图')">更适合外卖主图</span>
-                                    <span class="quick-tag" onclick="toggleTag(this, '留出文案区')">留出文案区</span>
-                                    <span class="quick-tag" onclick="toggleTag(this, '看起来分量更足')">看起来分量更足</span>
-                                    <span class="quick-tag" onclick="toggleTag(this, '更吸引年轻人')">更吸引年轻人</span>
-                                </div>
-                            </div>
+
                             
                             <!-- 自由补充输入框 -->
                             <div style="margin-bottom: 8px;">
@@ -1934,15 +1908,16 @@
                                     return mappedTerms;
                                 }
                                 
-                                // 获取当前品类的知识数据
-                                const catK = categoryKnowledge[category2] || {};
-                                const intentMappings = catK.intent_mappings || {};
-                                
                                 // 遍历选中的意图，获取映射词
                                 selectedIntents.forEach(intent => {
-                                    if (intentMappings[intent]) {
-                                        // 将映射词添加到结果数组
-                                        mappedTerms = mappedTerms.concat(intentMappings[intent]);
+                                    // 从intentMappingData中获取意图数据
+                                    if (intentMappingData[intent]) {
+                                        const intentData = intentMappingData[intent];
+                                        // 检查是否有对应的品类映射
+                                        if (intentData.mappings[category1] && intentData.mappings[category1][category2]) {
+                                            // 将映射词添加到结果数组
+                                            mappedTerms = mappedTerms.concat(intentData.mappings[category1][category2]);
+                                        }
                                     }
                                 });
                                 
@@ -2191,8 +2166,11 @@
                                         throw new Error('请先选择二级品类');
                                     }
                                     
-                                    // 解析意图映射，将抽象的感觉标签转换为具体描述
-                                    const intentMappedTerms = resolveIntentMappings(category1, category2, appetite);
+                                    // 解析意图映射
+                                    // 1. 经营意图映射（用于经营目标组装）
+                                    const businessIntentMappedTerms = highlight ? resolveIntentMappings(category1, category2, [highlight]) : [];
+                                    // 2. 审美意图映射（用于风格、场景、细节映射组装）
+                                    const aestheticIntentMappedTerms = resolveIntentMappings(category1, category2, appetite);
                                     
                                     // 构建draftPrompt
                                     const draftPrompt = context.basePrompt || '请生成一个结构化提示词';
@@ -2209,7 +2187,8 @@
                                             body: JSON.stringify({
                                                 draftPrompt: draftPrompt,
                                                 context: context,
-                                                intentMappedTerms: intentMappedTerms
+                                                businessIntentMappedTerms: businessIntentMappedTerms,
+                                                aestheticIntentMappedTerms: aestheticIntentMappedTerms
                                             }),
                                             timeout: 5000 // 5秒超时
                                         });
@@ -2226,11 +2205,17 @@
                                         }
                                         
                                         structuredPrompt = result.data;
+                                        
+                                        // 清洗API返回的final_prompt_text
+                                        if (structuredPrompt.final_prompt_text) {
+                                            structuredPrompt.final_prompt_text = cleanFinalPromptText(structuredPrompt.final_prompt_text);
+                                        }
                                     } catch (apiError) {
                                         console.warn('API调用失败，使用mock数据:', apiError.message);
                                         
                                         // 构建包含自由补充内容的mock数据
-                                        let details = [...intentMappedTerms];
+                                        let details = [...aestheticIntentMappedTerms];
+                                        let businessDetails = [...businessIntentMappedTerms];
                                         
                                         // 如果有自定义提示词，添加到details中
                                         if (customPrompt) {
@@ -2246,18 +2231,34 @@
                                         const mockColor = color || "鲜艳色调";
                                         const mockBusinessGoal = highlight || "突出产品特点";
                                         
-                                        // 构建符合当前品类的finalPromptText，不直接使用抽象词
-                                        let mockFinalPrompt = `一张${mockStyle}的${mockSubject}照片，${mockComposition}，${mockLighting}，${mockColor}，突出${mockBusinessGoal}`;
+                                        // 构建提示词各部分，去重后合并
+                                        const promptParts = [
+                                            // 主体部分
+                                            `一张${mockStyle}的${mockSubject}照片`,
+                                            mockComposition,
+                                            mockLighting,
+                                            mockColor,
+                                            // 经营目标组装
+                                            mockBusinessGoal ? `突出${mockBusinessGoal}` : '',
+                                            ...businessDetails,
+                                            // 风格、场景、细节映射组装
+                                            ...details,
+                                            extraRequirements
+                                        ];
                                         
-                                        if (details.length > 0) {
-                                            mockFinalPrompt += `，${details.join('，')}`;
+                                        // 去重并过滤
+                                        const uniquePromptParts = dedupePromptSegments(promptParts);
+                                        
+                                        // 构建最终提示词
+                                        let mockFinalPrompt = uniquePromptParts.join('，');
+                                        
+                                        // 添加句号
+                                        if (mockFinalPrompt) {
+                                            mockFinalPrompt += "。";
                                         }
                                         
-                                        if (extraRequirements) {
-                                            mockFinalPrompt += `，${extraRequirements}`;
-                                        }
-                                        
-                                        mockFinalPrompt += "。";
+                                        // 清洗最终提示词文本
+                                        mockFinalPrompt = cleanFinalPromptText(mockFinalPrompt);
                                         
                                         // 使用mock数据兜底，包含当前表单值
                                         structuredPrompt = {
@@ -2268,9 +2269,11 @@
                                             "lighting": mockLighting,
                                             "color": mockColor,
                                             "business_goal": mockBusinessGoal,
-                                            "details": details,
+                                            "business_details": businessDetails,
+                                            "aesthetic_details": details,
                                             "extraRequirements": extraRequirements,
-                                            "intentMappedTerms": intentMappedTerms,
+                                            "businessIntentMappedTerms": businessIntentMappedTerms,
+                                            "aestheticIntentMappedTerms": aestheticIntentMappedTerms,
                                             "final_prompt_text": mockFinalPrompt
                                         };
                                     }
@@ -7371,52 +7374,165 @@
             }
         }
 
-        // 动态更新整体调性选项
-        function updateToneOptions() {
-            // 获取整体调性下拉框
-            const toneSelect = document.getElementById('appetite-select');
-            
-            // 清空当前选项
-            toneSelect.innerHTML = '<option value="">请选择</option>';
-            
-            // 从intentMappingData获取最新意图列表
-            // 假设intentMappingData是全局可用的意图映射数据对象
-            if (typeof intentMappingData === 'object') {
-                // 获取所有意图名称
-                const intents = Object.keys(intentMappingData);
-                
-                // 添加意图选项
-                intents.forEach(intent => {
-                    const option = document.createElement('option');
-                    option.value = intent;
-                    option.textContent = intent;
-                    toneSelect.appendChild(option);
-                });
-                
-                // 默认选中第一个意图
-                if (intents.length > 0) {
-                    toneSelect.selectedIndex = 1;
-                }
-            } else {
-                // 如果没有intentMappingData，使用默认意图列表
-                const defaultIntents = ['有食欲', '高级感', '热闹', '干净', '清爽', '丰盛'];
-                defaultIntents.forEach(intent => {
-                    const option = document.createElement('option');
-                    option.value = intent;
-                    option.textContent = intent;
-                    toneSelect.appendChild(option);
-                });
-                // 默认选中第一个意图
-                toneSelect.selectedIndex = 1;
-            }
-        }
-
-        // 页面加载时初始化整体调性选项
+        // 页面加载时初始化
         document.addEventListener('DOMContentLoaded', function() {
-            updateToneOptions();
+            // 渲染意图选择板块
+            renderBusinessIntents();
+            renderAestheticIntents();
+            
             // 初始化时从商家视角同步数据到组装器
             syncFromMerchantView();
         });
+        
+        // 获取经营意图数据
+        function getBusinessIntents() {
+            return Object.entries(intentMappingData)
+                .filter(([key, intent]) => intent.type === 'business')
+                .map(([key, intent]) => ({ name: key, data: intent }));
+        }
+        
+        // 获取审美意图数据
+        function getAestheticIntents() {
+            return Object.entries(intentMappingData)
+                .filter(([key, intent]) => intent.type === 'aesthetic')
+                .map(([key, intent]) => ({ name: key, data: intent }));
+        }
+        
+        // 渲染经营意图下拉选项
+        function renderBusinessIntents() {
+            const selectElement = document.getElementById('highlight-select');
+            const businessIntents = getBusinessIntents();
+            
+            // 清空现有选项（保留默认选项）
+            selectElement.innerHTML = '<option value="">请选择</option>';
+            
+            // 添加经营意图选项
+            businessIntents.forEach(intent => {
+                const option = document.createElement('option');
+                option.value = intent.name;
+                option.textContent = intent.name;
+                selectElement.appendChild(option);
+            });
+        }
+        
+        // 渲染审美意图多选标签
+        function renderAestheticIntents() {
+            const container = document.getElementById('appetite-select');
+            const aestheticIntents = getAestheticIntents();
+            
+            // 清空现有标签
+            container.innerHTML = '';
+            
+            // 添加审美意图标签
+            aestheticIntents.forEach(intent => {
+                const tag = document.createElement('span');
+                tag.className = 'quick-tag';
+                tag.onclick = function() { toggleAppetiteTag(this, intent.name); };
+                tag.dataset.value = intent.name;
+                tag.textContent = intent.name;
+                container.appendChild(tag);
+            });
+        }
+        
+        // 收集并去重所有选中的意图和标签
+        function collectSelectedIntents() {
+            // 从隐藏输入框获取选中的感觉标签
+            const appetiteTags = document.getElementById('selected-appetite-tags').value || '';
+            const selectedIntents = appetiteTags ? appetiteTags.split(',') : [];
+            
+            // 获取选中的快捷标签
+            let quickTags = [];
+            const selectedTagsElements = document.querySelectorAll('.quick-tag.selected');
+            selectedTagsElements.forEach(element => {
+                // 排除appetite-select中的标签，避免重复收集
+                if (!element.closest('#appetite-select')) {
+                    quickTags.push(element.textContent);
+                }
+            });
+            
+            // 获取自定义提示词
+            const customPrompt = document.getElementById('prompt-input').value || '';
+            const extraRequirements = customPrompt ? [customPrompt] : [];
+            
+            // 获取突出卖点
+            const highlight = document.getElementById('highlight-select').value || '';
+            const generationGoal = highlight ? [highlight] : [];
+            
+            // 合并所有意图和标签
+            let allIntents = [...selectedIntents, ...quickTags, ...extraRequirements, ...generationGoal];
+            
+            // 去重并过滤空值
+            return [...new Set(allIntents)].filter(intent => intent.trim() !== '');
+        }
+        
+        // 去重并清洗提示词片段
+        function dedupePromptSegments(segments) {
+            // 去重
+            const uniqueSegments = [...new Set(segments)];
+            
+            // 过滤空值和占位符
+            return uniqueSegments.filter(segment => {
+                return segment && segment.trim() !== '' && segment !== '-' && segment !== '请选择';
+            });
+        }
+        
+        // 清洗最终提示词文本
+        function cleanFinalPromptText(text) {
+            if (!text) return '';
+            
+            let cleanedText = text;
+            
+            // 移除重复的短语
+            cleanedText = cleanedText.replace(/([^，。]+)(，\1)+/g, '$1');
+            
+            // 移除重复的标点
+            cleanedText = cleanedText.replace(/([，。、；！？])\1+/g, '$1');
+            
+            // 移除多余空格
+            cleanedText = cleanedText.replace(/\s+/g, ' ').trim();
+            
+            return cleanedText;
+        }
+        
+        // 构建提示词各部分
+        function buildPromptParts(context, intentMappedTerms) {
+            const {
+                category1,
+                category2,
+                productName,
+                highlight,
+                customPrompt,
+                imageType,
+                style,
+                lighting,
+                composition,
+                color
+            } = context;
+            
+            // 收集所有意图
+            const selectedIntents = collectSelectedIntents();
+            
+            // 合并所有提示词片段
+            const promptParts = [
+                // 主体部分
+                productName || `${category2}`,
+                
+                // 风格和视觉效果
+                style,
+                lighting,
+                composition,
+                color,
+                
+                // 意图映射后的具体描述
+                ...intentMappedTerms,
+                
+                // 其他要求
+                ...selectedIntents
+            ];
+            
+            // 去重并过滤
+            return dedupePromptSegments(promptParts);
+        }
         
         // 从商家视角同步数据到Prompt组装器
         function syncFromMerchantView() {
