@@ -1408,7 +1408,6 @@
                                 <h3 class="section-title">📝 生成的提示词</h3>
                                 <div style="display: flex; gap: 8px;">
                                     <button class="btn btn-primary" onclick="generateStructuredPrompt()" id="generate-prompt-btn">✨ 生成提示词</button>
-                                    <button class="btn btn-secondary" onclick="generateImages()">🎨 发送给图像模型进行生图</button>
                                 </div>
                             </div>
                             <div style="padding: 20px;">
@@ -1991,36 +1990,59 @@
                                     color: prompt.color || '-',
                                     business_goal: prompt.business_goal || '-',
                                     final_prompt_text: prompt.final_prompt_text || '生成的提示词为空',
-                                    details: prompt.details || [],
-                                    intentMappedTerms: prompt.intentMappedTerms || []
+                                    details: (prompt.details || []).filter(detail => {
+                                        return !['有食欲', '高级感', '清爽', '烟火气', '干净', '丰盛', '热闹'].includes(detail);
+                                    }),
+                                    // 确保intentMappedTerms没有原始意图标签
+                                    intentMappedTerms: (prompt.intentMappedTerms || []).filter(term => {
+                                        return !['有食欲', '高级感', '清爽', '烟火气', '干净', '丰盛', '热闹'].includes(term);
+                                    })
                                 };
+                                
+                                // 合并businessIntentMappedTerms和aestheticIntentMappedTerms，去除重复和原始标签
+                                const allMappedTerms = [
+                                    ...(prompt.businessIntentMappedTerms || []),
+                                    ...(prompt.aestheticIntentMappedTerms || [])
+                                ].filter((term, index, self) => {
+                                    return term && 
+                                           !['有食欲', '高级感', '清爽', '烟火气', '干净', '丰盛', '热闹'].includes(term) &&
+                                           self.indexOf(term) === index;
+                                });
                                 
                                 // 更新结构化摘要
                                 document.getElementById('summary-subject').textContent = normalizedPrompt.subject;
                                 document.getElementById('summary-scene').textContent = normalizedPrompt.scene;
-                                document.getElementById('summary-style').textContent = normalizedPrompt.style;
                                 document.getElementById('summary-composition').textContent = normalizedPrompt.composition;
                                 document.getElementById('summary-lighting').textContent = normalizedPrompt.lighting;
                                 document.getElementById('summary-color').textContent = normalizedPrompt.color;
                                 document.getElementById('summary-business-goal').textContent = normalizedPrompt.business_goal;
                                 
-                                // 如果有映射后的具体描述，添加到style字段或创建新字段
-                                if (normalizedPrompt.intentMappedTerms.length > 0) {
-                                    // 如果style字段为空，使用映射后的描述
-                                    if (normalizedPrompt.style === '-') {
-                                        document.getElementById('summary-style').textContent = normalizedPrompt.intentMappedTerms.join('，');
+                                // 只使用映射后的具体描述，不使用原始标签
+                                let styleText = normalizedPrompt.style !== '-' ? normalizedPrompt.style : '';
+                                if (allMappedTerms.length > 0) {
+                                    if (styleText) {
+                                        styleText += '，' + allMappedTerms.join('，');
                                     } else {
-                                        // 否则，将映射后的描述添加到style字段
-                                        document.getElementById('summary-style').textContent += '，' + normalizedPrompt.intentMappedTerms.join('，');
+                                        styleText = allMappedTerms.join('，');
                                     }
                                 }
+                                document.getElementById('summary-style').textContent = styleText || '-';
                                 
                                 // 更新最终提示词
                                 document.getElementById('final-prompt-text').textContent = normalizedPrompt.final_prompt_text;
                                 
-                                // 更新JSON详情
+                                // 更新JSON详情，确保不包含原始意图标签
+                                const cleanPrompt = {
+                                    ...prompt,
+                                    // 过滤掉所有包含原始意图标签的字段
+                                    details: normalizedPrompt.details,
+                                    intentMappedTerms: normalizedPrompt.intentMappedTerms,
+                                    aesthetic_details: (prompt.aesthetic_details || []).filter(detail => {
+                                        return !['有食欲', '高级感', '清爽', '烟火气', '干净', '丰盛', '热闹'].includes(detail);
+                                    })
+                                };
                                 const jsonElement = document.getElementById('structured-prompt-json');
-                                jsonElement.textContent = JSON.stringify(prompt, null, 2);
+                                jsonElement.textContent = JSON.stringify(cleanPrompt, null, 2);
                             }
                             
                             // 显示加载状态
@@ -2146,6 +2168,32 @@
                                 };
                             }
                             
+                            // 移除原始审美意图标签，只保留映射后的具体描述
+                            function stripRawIntentLabels(text) {
+                                if (!text) return text;
+                                
+                                // 定义需要移除的原始审美意图标签
+                                const rawIntentLabels = ['有食欲', '高级感', '清爽', '烟火气', '干净', '丰盛', '热闹'];
+                                
+                                let processedText = text;
+                                rawIntentLabels.forEach(label => {
+                                    // 使用正则表达式匹配并移除原始标签
+                                    // 考虑标签前后可能有标点或空格
+                                    const regex = new RegExp(`(，|。|、|；|！|？|\\s*)${label}(，|。|、|；|！|？|\\s*)`, 'g');
+                                    processedText = processedText.replace(regex, '$1$2');
+                                    
+                                    // 处理单独出现的标签
+                                    const singleRegex = new RegExp(`^${label}$|^${label}(，|。|、|；|！|？)$|(，|。|、|；|！|？)${label}$`, 'g');
+                                    processedText = processedText.replace(singleRegex, '');
+                                });
+                                
+                                // 移除多余的标点
+                                processedText = processedText.replace(/([，。、；！？])\\1+/g, '$1');
+                                processedText = processedText.replace(/^[，。、；！？]+|[，。、；！？]+$/g, '');
+                                
+                                return processedText.trim();
+                            }
+                            
                             // 生成结构化提示词
                             async function generateStructuredPrompt() {
                                 try {
@@ -2206,9 +2254,22 @@
                                         
                                         structuredPrompt = result.data;
                                         
-                                        // 清洗API返回的final_prompt_text
+                                        // 清洗API返回的final_prompt_text，确保没有原始意图标签
                                         if (structuredPrompt.final_prompt_text) {
                                             structuredPrompt.final_prompt_text = cleanFinalPromptText(structuredPrompt.final_prompt_text);
+                                            structuredPrompt.final_prompt_text = stripRawIntentLabels(structuredPrompt.final_prompt_text);
+                                        }
+                                        
+                                        // 确保其他字段也没有原始意图标签
+                                        if (structuredPrompt.details) {
+                                            structuredPrompt.details = structuredPrompt.details.filter(detail => {
+                                                return !['有食欲', '高级感', '清爽', '烟火气', '干净', '丰盛', '热闹'].includes(detail);
+                                            });
+                                        }
+                                        if (structuredPrompt.intentMappedTerms) {
+                                            structuredPrompt.intentMappedTerms = structuredPrompt.intentMappedTerms.filter(term => {
+                                                return !['有食欲', '高级感', '清爽', '烟火气', '干净', '丰盛', '热闹'].includes(term);
+                                            });
                                         }
                                     } catch (apiError) {
                                         console.warn('API调用失败，使用mock数据:', apiError.message);
@@ -2257,8 +2318,9 @@
                                             mockFinalPrompt += "。";
                                         }
                                         
-                                        // 清洗最终提示词文本
+                                        // 清洗最终提示词文本，确保没有原始意图标签
                                         mockFinalPrompt = cleanFinalPromptText(mockFinalPrompt);
+                                        mockFinalPrompt = stripRawIntentLabels(mockFinalPrompt);
                                         
                                         // 使用mock数据兜底，包含当前表单值
                                         structuredPrompt = {
@@ -2274,7 +2336,15 @@
                                             "extraRequirements": extraRequirements,
                                             "businessIntentMappedTerms": businessIntentMappedTerms,
                                             "aestheticIntentMappedTerms": aestheticIntentMappedTerms,
-                                            "final_prompt_text": mockFinalPrompt
+                                            "final_prompt_text": mockFinalPrompt,
+                                            // 确保details字段没有原始意图标签
+                                            "details": details.filter(detail => {
+                                                return !['有食欲', '高级感', '清爽', '烟火气', '干净', '丰盛', '热闹'].includes(detail);
+                                            }),
+                                            // 确保intentMappedTerms字段没有原始意图标签
+                                            "intentMappedTerms": aestheticIntentMappedTerms.filter(term => {
+                                                return !['有食欲', '高级感', '清爽', '烟火气', '干净', '丰盛', '热闹'].includes(term);
+                                            })
                                         };
                                     }
                                     
@@ -2311,15 +2381,105 @@
                                         return;
                                     }
                                     
-                                    // 显示生成中提示
-                                    showToast('生成中', '正在准备发送给图像模型...', 'info');
+                                    // 获取按钮和结果框元素
+                                    const generateBtn = document.getElementById('generate-image-btn');
+                                    const imageResults = document.getElementById('image-results');
                                     
-                                    // 这里是图像模型调用的占位符，后续可以替换为真实的API调用
-                                    setTimeout(() => {
-                                        showToast('功能开发中', '图像生成功能正在开发中，敬请期待', 'info');
-                                    }, 1500);
+                                    // 保存原始按钮文本
+                                    const originalBtnText = generateBtn.textContent;
+                                    
+                                    // 进入loading状态
+                                    generateBtn.textContent = '生成中...';
+                                    generateBtn.disabled = true;
+                                    generateBtn.classList.add('btn-loading');
+                                    
+                                    // 显示生成中提示
+                                    imageResults.innerHTML = `
+                                        <div style="text-align: center; color: var(--text-light); grid-column: 1 / -1;">
+                                            <div class="loading-spinner"></div>
+                                            <div style="margin-top: 16px;">正在生成图片...</div>
+                                        </div>
+                                    `;
+                                    
+                                    // 调用后端接口
+                                    fetch('/api/generate-image', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json'
+                                        },
+                                        body: JSON.stringify({
+                                            prompt: finalPrompt
+                                        })
+                                    })
+                                    .then(response => response.json())
+                                    .then(data => {
+                                        // 恢复按钮状态
+                                        generateBtn.textContent = originalBtnText;
+                                        generateBtn.disabled = false;
+                                        generateBtn.classList.remove('btn-loading');
+                                        
+                                        if (data.success) {
+                                            // 成功生成图片
+                                            let imageUrl = '';
+                                            
+                                            // 兼容不同的返回格式
+                                            if (typeof data.result === 'string') {
+                                                // 直接返回图片URL
+                                                imageUrl = data.result;
+                                            } else if (data.result && data.result.image) {
+                                                // 返回对象中的图片字段
+                                                imageUrl = data.result.image;
+                                            } else if (data.result && data.result.images && data.result.images.length > 0) {
+                                                // 返回图片数组
+                                                imageUrl = data.result.images[0];
+                                            } else {
+                                                // 其他格式，尝试转换为字符串
+                                                imageUrl = String(data.result);
+                                            }
+                                            
+                                            // 显示生成的图片
+                                            imageResults.innerHTML = `
+                                                <img src="${imageUrl}" alt="生成的图片" style="max-width: 100%; height: auto; border-radius: var(--radius-md); grid-column: 1 / -1;">
+                                            `;
+                                            
+                                            showToast('生成成功', '图片已生成', 'success');
+                                        } else {
+                                            // 生成失败
+                                            imageResults.innerHTML = `
+                                                <div style="text-align: center; color: var(--error); grid-column: 1 / -1;">
+                                                    <div style="font-size: 48px; margin-bottom: 16px;">❌</div>
+                                                    <div>${data.message || '生成图片失败，请稍后重试'}</div>
+                                                </div>
+                                            `;
+                                            
+                                            showToast('生成失败', data.message || '生成图片失败，请稍后重试', 'error');
+                                        }
+                                    })
+                                    .catch(error => {
+                                        // 恢复按钮状态
+                                        generateBtn.textContent = originalBtnText;
+                                        generateBtn.disabled = false;
+                                        generateBtn.classList.remove('btn-loading');
+                                        
+                                        // 显示错误提示
+                                        imageResults.innerHTML = `
+                                            <div style="text-align: center; color: var(--error); grid-column: 1 / -1;">
+                                                <div style="font-size: 48px; margin-bottom: 16px;">❌</div>
+                                                <div>调用生图API失败：${error.message}</div>
+                                            </div>
+                                        `;
+                                        
+                                        console.error('调用生图API失败:', error);
+                                        showToast('生成失败', '调用生图API失败，请稍后重试', 'error');
+                                    });
                                     
                                 } catch (error) {
+                                    // 恢复按钮状态
+                                    const generateBtn = document.getElementById('generate-image-btn');
+                                    generateBtn.textContent = '🎨 发送给图像模型进行生图';
+                                    generateBtn.disabled = false;
+                                    generateBtn.classList.remove('btn-loading');
+                                    
                                     console.error('发送到图像模型失败:', error);
                                     showToast('发送失败', '无法发送到图像模型', 'error');
                                 }
@@ -2509,8 +2669,12 @@
                         <!-- 生图结果展示区域 -->
                         <div style="margin-top: 24px;">
                             <div class="content-section">
-                                <div class="section-header">
+                                <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
                                     <h3 class="section-title">🖼️ 生图结果</h3>
+                                    <!-- 生图按钮 -->
+                                    <button class="btn btn-secondary" onclick="generateImages()" id="generate-image-btn">
+                                        🎨 开始生图
+                                    </button>
                                 </div>
                                 <div style="padding: 20px;">
                                     <div id="image-results" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; min-height: 200px; align-items: center; justify-items: center; background: #f8f9fa; border-radius: var(--radius-md);">
